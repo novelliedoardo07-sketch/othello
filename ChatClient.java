@@ -1,56 +1,53 @@
 package othello;
+
+import javax.swing.*;
 import java.io.*;
 import java.net.*;
+
 public class ChatClient {
-    public static void main(String[] args) {
-        String host = "localhost";
-        int port = 5000;
-        if (args.length > 0) host = args[0];
-        if (args.length > 1) {
-            try { port = Integer.parseInt(args[1]); } catch (NumberFormatException ignored) {}
-        }
 
-        System.out.println("Connessione a " + host + ":" + port + " ...");
-        try (Socket socket = new Socket(host, port);
-             BufferedReader fromServer = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
-             PrintWriter toServer = new PrintWriter(new OutputStreamWriter(socket.getOutputStream(), "UTF-8"), true);
-             BufferedReader console = new BufferedReader(new InputStreamReader(System.in, "UTF-8"))
-        ) {
-            System.out.println("Connesso al server.");
+    private Socket socket;
+    private BufferedReader in;
+    private PrintWriter out;
+    private OthelloGUI gui;
 
-            // Thread che legge dal server e stampa su console
-            Thread reader = new Thread(() -> {
-                try {
-                    String line;
-                    while ((line = fromServer.readLine()) != null) {
-                        System.out.println("SERVER: " + line);
-                        if (line.equalsIgnoreCase("/quit")) {
-                            System.out.println("Server ha chiesto di terminare. Chiudo lato client.");
-                            break;
-                        }
-                    }
-                } catch (IOException e) {
-                    System.out.println("Lettura dal server terminata: " + e.getMessage());
+    public ChatClient(String host, int port) throws IOException {
+        socket = new Socket(host, port);
+        System.out.println("Connesso al server");
+
+        in = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
+        out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream(), "UTF-8"), true);
+
+        gui = new OthelloGUI(this, 2); // BIANCO
+        avviaReader();
+    }
+
+    public void inviaMossa(int x, int y) {
+        out.println(x + " " + y);
+    }
+
+    private void avviaReader() {
+        Thread t = new Thread(() -> {
+            try {
+                String msg;
+                while ((msg = in.readLine()) != null) {
+                    String[] p = msg.split(" ");
+                    int x = Integer.parseInt(p[0]);
+                    int y = Integer.parseInt(p[1]);
+
+                    SwingUtilities.invokeLater(() ->
+                            gui.applicaMossaRemota(x, y)
+                    );
                 }
-            });
-            reader.setDaemon(true);
-            reader.start();
-
-            // Loop di invio: leggi da console e invia al server
-            String input;
-            while ((input = console.readLine()) != null) {
-                toServer.println(input);
-                toServer.flush();
-                if (input.equalsIgnoreCase("/quit")) {
-                    System.out.println("Hai chiesto di terminare. Chiudo connessione.");
-                    break;
-                }
+            } catch (Exception e) {
+                System.out.println("Connessione chiusa");
             }
+        });
+        t.setDaemon(true);
+        t.start();
+    }
 
-        } catch (IOException e) {
-            System.err.println("Errore di connessione/IO: " + e.getMessage());
-        }
-
-        System.out.println("Client terminato.");
+    public static void main(String[] args) throws Exception {
+        new ChatClient("localhost", 5000);
     }
 }
