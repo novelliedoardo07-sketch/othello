@@ -1,141 +1,150 @@
+package othello;
+
 import javax.swing.*;
 import java.awt.*;
 import java.awt.event.*;
 
 public class OthelloGUI extends JFrame {
 
-    private int turno = 1;
-    private int[][] board = new int[8][8];
     private JButton[][] buttons = new JButton[8][8];
+    private JLabel status = new JLabel();
 
     public OthelloGUI() {
         setTitle("Othello");
-        setSize(600, 600);
+        setSize(600, 650);
         setDefaultCloseOperation(EXIT_ON_CLOSE);
-        setLayout(new GridLayout(8, 8));
+        setLayout(new BorderLayout());
 
-        initBoard();
-        initButtons();
-        refreshBoard();
-    }
+        JPanel board = new JPanel(new GridLayout(8, 8));
+        board.setBackground(new Color(0, 120, 0));
 
-    private void initBoard() {
-        for (int y = 0; y < 8; y++)
-            for (int x = 0; x < 8; x++)
-                board[y][x] = 0;
-
-        board[3][3] = 1;
-        board[4][4] = 1;
-        board[3][4] = 2;
-        board[4][3] = 2;
-    }
-
-    private void initButtons() {
+        // CREA GRIGLIA
         for (int y = 0; y < 8; y++) {
             for (int x = 0; x < 8; x++) {
+                JButton b = new JButton();
+                b.setFocusPainted(false);
+                b.setBackground(new Color(0, 150, 0));
+                b.setBorder(BorderFactory.createLineBorder(Color.BLACK));
+
                 final int fx = x;
                 final int fy = y;
 
-                JButton b = new JButton();
-                b.setBackground(Color.GREEN);
-                b.setOpaque(true);
-                b.setBorder(BorderFactory.createLineBorder(Color.BLACK));
-
-                b.addActionListener(e -> {
-                    if (isValidMove(fx, fy)) {
-                        makeMove(fx, fy);
-                        turno = (turno == 1 ? 2 : 1);
-                        refreshBoard();
-                    }
-                });
+                b.addActionListener(e -> handleMove(fx, fy));
 
                 buttons[y][x] = b;
-                add(b);
+                board.add(b);
             }
         }
+
+        status.setHorizontalAlignment(JLabel.CENTER);
+        status.setFont(new Font("Arial", Font.BOLD, 18));
+
+        add(board, BorderLayout.CENTER);
+        add(status, BorderLayout.SOUTH);
+
+        aggiornaGUI();
+        setVisible(true);
     }
 
-    private boolean isValidMove(int x, int y) {
-        if (board[y][x] != 0) return false;
-        return flips(x, y, false);
-    }
+    // ==========================================================
+    // GESTIONE MOSSA
+    // ==========================================================
 
-    private void makeMove(int x, int y) {
-        flips(x, y, true);
-    }
+    private void handleMove(int x, int y) {
 
-    private boolean flips(int x, int y, boolean mode) {
-        boolean moved = false;
-
-        int[][] dirs = {
-            {-1, 0}, {1, 0}, {0, -1}, {0, 1},
-            {-1, -1}, {1, -1}, {-1, 1}, {1, 1}
-        };
-
-        for (int[] d : dirs) {
-            if (flipDirection(x, y, d[0], d[1], mode))
-                moved = true;
+        if (!logica.controllo(x, y)) {
+            JOptionPane.showMessageDialog(this, "Mossa non valida!");
+            return;
         }
 
-        return moved;
-    }
+        logica.applicaMossa(x, y);
+        logica.turno = (logica.turno == 1 ? 2 : 1);
 
-    private boolean flipDirection(int x, int y, int dx, int dy, boolean mode) {
-        int enemy = (turno == 1 ? 2 : 1);
-        int cx = x + dx;
-        int cy = y + dy;
+        if (!logica.haMosse(logica.turno)) {
+            logica.turno = (logica.turno == 1 ? 2 : 1);
 
-        boolean foundEnemy = false;
-
-        while (cx >= 0 && cx < 8 && cy >= 0 && cy < 8) {
-            if (board[cy][cx] == enemy) {
-                foundEnemy = true;
-                cx += dx;
-                cy += dy;
-                continue;
+            if (logica.partitaFinita()) {
+                finePartita();
+                return;
             }
-
-            if (board[cy][cx] == turno) {
-                if (!foundEnemy) return false;
-
-                if (mode) {
-                    int fx = x + dx;
-                    int fy = y + dy;
-
-                    while (fx != cx || fy != cy) {
-                        board[fy][fx] = turno;
-                        fx += dx;
-                        fy += dy;
-                    }
-
-                    board[y][x] = turno;
-                }
-                return true;
-            }
-
-            if (board[cy][cx] == 0) return false;
         }
 
-        return false;
+        aggiornaGUI();
     }
 
-    private void refreshBoard() {
+    // ==========================================================
+    // AGGIORNA GRAFICA
+    // ==========================================================
+
+    private void aggiornaGUI() {
         for (int y = 0; y < 8; y++) {
             for (int x = 0; x < 8; x++) {
                 JButton b = buttons[y][x];
+                int v = logica.matrix[y][x];
 
-                if (board[y][x] == 1) {
-                    b.setBackground(Color.BLACK);
-                } else if (board[y][x] == 2) {
-                    b.setBackground(Color.WHITE);
+                if (v == 1) {
+                    b.setIcon(creaPedina(Color.BLACK));
+                } else if (v == 2) {
+                    b.setIcon(creaPedina(Color.WHITE));
                 } else {
-                    b.setBackground(Color.GREEN);
+                    b.setIcon(null);
                 }
             }
         }
+
+        status.setText("Turno del giocatore " + logica.turno);
     }
 
+    // ==========================================================
+    // DISEGNO PEDINA
+    // ==========================================================
+
+    private Icon creaPedina(Color c) {
+        return new Icon() {
+            public int getIconWidth() { return 50; }
+            public int getIconHeight() { return 50; }
+
+            public void paintIcon(Component comp, Graphics g, int x, int y) {
+                g.setColor(c);
+                g.fillOval(x + 5, y + 5, 40, 40);
+                g.setColor(Color.BLACK);
+                g.drawOval(x + 5, y + 5, 40, 40);
+            }
+        };
+    }
+
+    // ==========================================================
+    // FINE PARTITA
+    // ==========================================================
+
+    private void finePartita() {
+        int g1 = 0, g2 = 0;
+
+        for (int y = 0; y < 8; y++)
+            for (int x = 0; x < 8; x++) {
+                if (logica.matrix[y][x] == 1) g1++;
+                if (logica.matrix[y][x] == 2) g2++;
+            }
+
+        String risultato;
+        if (g1 > g2) risultato = "Vince il giocatore 1!";
+        else if (g2 > g1) risultato = "Vince il giocatore 2!";
+        else risultato = "Pareggio!";
+
+        JOptionPane.showMessageDialog(this,
+                risultato + "\n\nGiocatore 1: " + g1 +
+                "\nGiocatore 2: " + g2,
+                "Fine partita",
+                JOptionPane.INFORMATION_MESSAGE);
+
+        System.exit(0);
+    }
+
+    // ==========================================================
+    // MAIN GRAFICO
+    // ==========================================================
+
     public static void main(String[] args) {
-        SwingUtilities.invokeLater(() -> new OthelloGUI().setVisible(true));
+        SwingUtilities.invokeLater(OthelloGUI::new);
     }
 }
