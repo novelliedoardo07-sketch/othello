@@ -1,5 +1,6 @@
 package othello;
 
+import java.net.InetAddress;
 import javax.swing.*;
 import java.io.*;
 import java.net.*;
@@ -23,7 +24,16 @@ public class ChatServer {
         gui = new OthelloGUI(this, 1); // NERO
         avviaReader();
     }
-
+    
+    public static String getIpLocale() {
+        try {
+            InetAddress inetAddress = InetAddress.getLocalHost();
+            return inetAddress.getHostAddress();
+        } catch (Exception e) {
+            return "IP non disponibile";
+        }
+    }
+    
     public void inviaMossa(int x, int y) {
         out.println(x + " " + y);
     }
@@ -50,7 +60,7 @@ public class ChatServer {
     }
 
     public static void main(String[] args) throws Exception {
+    	 System.out.println("IP locale: " + getIpLocale());
         new ChatServer(5000);
     }
 }
-
