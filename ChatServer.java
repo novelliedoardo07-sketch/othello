@@ -1,9 +1,9 @@
 package othello;
 
-import java.net.InetAddress;
 import javax.swing.*;
 import java.io.*;
 import java.net.*;
+import java.util.Enumeration;
 
 public class ChatServer {
 
@@ -13,10 +13,18 @@ public class ChatServer {
     private OthelloGUI gui;
 
     public ChatServer(int port) throws IOException {
+
         ServerSocket serverSocket = new ServerSocket(port);
-        System.out.println("Server avviato, in attesa del client...");
+
+        String ip = getPublicIP();
+        JOptionPane.showMessageDialog(
+                null,
+                "Server avviato\nIP: " + ip + "\nPorta: " + port,
+                "Server Othello",
+                JOptionPane.INFORMATION_MESSAGE
+        );
+
         socket = serverSocket.accept();
-        System.out.println("Client connesso");
 
         in = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
         out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream(), "UTF-8"), true);
@@ -24,43 +32,45 @@ public class ChatServer {
         gui = new OthelloGUI(this, 1); // NERO
         avviaReader();
     }
-    
-    public static String getIpLocale() {
-        try {
-            InetAddress inetAddress = InetAddress.getLocalHost();
-            return inetAddress.getHostAddress();
-        } catch (Exception e) {
-            return "IP non disponibile";
-        }
-    }
-    
+
     public void inviaMossa(int x, int y) {
         out.println(x + " " + y);
     }
 
     private void avviaReader() {
-        Thread t = new Thread(() -> {
+        new Thread(() -> {
             try {
                 String msg;
                 while ((msg = in.readLine()) != null) {
                     String[] p = msg.split(" ");
-                    int x = Integer.parseInt(p[0]);
-                    int y = Integer.parseInt(p[1]);
-
-                    SwingUtilities.invokeLater(() ->
-                            gui.applicaMossaRemota(x, y)
+                    gui.applicaMossaRemota(
+                            Integer.parseInt(p[0]),
+                            Integer.parseInt(p[1])
                     );
                 }
             } catch (Exception e) {
-                System.out.println("Client disconnesso");
+                gui.vittoriaATavolino();
             }
-        });
-        t.setDaemon(true);
-        t.start();
+        }).start();
+    }
+
+    public static String getPublicIP() {
+        try {
+            Enumeration<NetworkInterface> nets = NetworkInterface.getNetworkInterfaces();
+            while (nets.hasMoreElements()) {
+                NetworkInterface net = nets.nextElement();
+                if (net.isLoopback() || !net.isUp()) continue;
+
+                for (InetAddress addr : java.util.Collections.list(net.getInetAddresses())) {
+                    if (addr instanceof Inet4Address)
+                        return addr.getHostAddress();
+                }
+            }
+        } catch (Exception ignored) {}
+        return "IP non disponibile";
     }
 
     public static void main(String[] args) throws Exception {
-    	 System.out.println("IP locale: " + getIpLocale());
         new ChatServer(5000);
     }
 }
