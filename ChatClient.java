@@ -12,8 +12,8 @@ public class ChatClient {
     private OthelloGUI gui;
 
     public ChatClient(String host, int port) throws IOException {
+
         socket = new Socket(host, port);
-        System.out.println("Connesso al server");
 
         in = new BufferedReader(new InputStreamReader(socket.getInputStream(), "UTF-8"));
         out = new PrintWriter(new OutputStreamWriter(socket.getOutputStream(), "UTF-8"), true);
@@ -27,27 +27,40 @@ public class ChatClient {
     }
 
     private void avviaReader() {
-        Thread t = new Thread(() -> {
+        new Thread(() -> {
             try {
                 String msg;
                 while ((msg = in.readLine()) != null) {
                     String[] p = msg.split(" ");
-                    int x = Integer.parseInt(p[0]);
-                    int y = Integer.parseInt(p[1]);
-
-                    SwingUtilities.invokeLater(() ->
-                            gui.applicaMossaRemota(x, y)
+                    gui.applicaMossaRemota(
+                            Integer.parseInt(p[0]),
+                            Integer.parseInt(p[1])
                     );
                 }
             } catch (Exception e) {
-                System.out.println("Connessione chiusa");
+                gui.vittoriaATavolino();
             }
-        });
-        t.setDaemon(true);
-        t.start();
+        }).start();
     }
 
-    public static void main(String[] args) throws Exception {
-        new ChatClient("localhost", 5000);
+    public static void main(String[] args) {
+
+        JTextField ip = new JTextField();
+        JTextField port = new JTextField("5000");
+
+        Object[] msg = {
+                "IP Server:", ip,
+                "Porta:", port
+        };
+
+        if (JOptionPane.showConfirmDialog(null, msg, "Connessione", JOptionPane.OK_CANCEL_OPTION)
+                != JOptionPane.OK_OPTION)
+            return;
+
+        try {
+            new ChatClient(ip.getText(), Integer.parseInt(port.getText()));
+        } catch (Exception e) {
+            JOptionPane.showMessageDialog(null, "Connessione fallita");
+        }
     }
 }
